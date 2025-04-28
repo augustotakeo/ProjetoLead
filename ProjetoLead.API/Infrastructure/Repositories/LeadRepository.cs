@@ -21,7 +21,8 @@ public class LeadRepository : ILeadRepository
                     Id = x.Id,
                     CEP = x.CEP,
                     Cnpj = x.Cnpj,
-                    Estado = x.Estado
+                    Estado = x.Estado,
+                    RazaoSocial = x.RazaoSocial
                 })
                 .ToListAsync();
 

@@ -1,0 +1,181 @@
+﻿@page "/CreateLead"
+@page "/UpdateLead/{id:int?}"
+
+@using Blazored.FluentValidation
+@using MudBlazor
+@using ProjetoLead.API.Models
+@using ProjetoLead.API.Models.Validators
+@using ProjetoLead.Models
+@using ProjetoLead.Pages.Components
+@using System.Text.Json
+@using ProjetoLead.Services
+@using ProjetoLead.Shared
+
+@inject LeadService LeadService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<div class="d-flex justify-content-center">
+    <h1>Cadastro de Lead</h1>
+</div>
+
+<EditForm Model="lead" OnValidSubmit="Save">
+
+    <FluentValidationValidator Validator="validator" />
+
+    <MudStack Class="form-line" Row>
+        <div style="width: 220px;">
+            <MaskedNumbericInput Label="CNPJ" @bind-Value="lead.Cnpj" Mask="cnpjMask" For=@(() => lead.Cnpj)>
+            </MaskedNumbericInput>
+        </div>
+        <div style="width: calc(100% - 220px);">
+            <MudTextField Label="Razão Social" @bind-Value="lead.RazaoSocial" For=@(() => lead.RazaoSocial)
+                MaxLength="60">
+            </MudTextField>
+        </div>
+    </MudStack>
+
+    <MudStack Class="form-line" Row>
+        <div style="width: 120px;">
+            <MaskedNumbericInput Label="CEP" @bind-Value="lead.CEP" Mask="postalCodeMask"
+                OnClearButtonClick="ClearAddress" For=@(() => lead.CEP)>
+            </MaskedNumbericInput>
+        </div>
+        <MudButton OnClick="SearchPostalCode">Pesquisar</MudButton>
+    </MudStack>
+
+    <MudStack Class="form-line" Row>
+        <MudTextField Label="Endereço" @bind-Value="lead.Endereco" ReadOnly="readOnlyAddress" For=@(() => lead.Endereco)
+            MaxLength="500"></MudTextField>
+        <MudTextField Label="Número" @bind-Value="lead.Numero" For=@(() => lead.Numero) MaxLength="50"></MudTextField>
+    </MudStack>
+
+    <MudStack Class="form-line" Row>
+        <MudTextField Label="Complemento" @bind-Value="lead.Complemento" For=@(() => lead.Complemento) MaxLength="500">
+        </MudTextField>
+        <MudTextField Label="Bairro" @bind-Value="lead.Bairro" For=@(() => lead.Bairro) ReadOnly="readOnlyNeighborhood"
+            MaxLength="20">
+        </MudTextField>
+    </MudStack>
+
+    <MudStack Class="form-line" Row>
+        <MudTextField Label="Cidade" @bind-Value="lead.Cidade" ReadOnly="readOnlyCity" For=@(() => lead.Cidade)
+            MaxLength="50">
+        </MudTextField>
+        <MudTextField Label="Estado" @bind-Value="lead.Estado" ReadOnly="readOnlyState" For=@(() => lead.Estado)
+            MaxLength="50">
+        </MudTextField>
+    </MudStack>
+
+    <MudButton ButtonType="ButtonType.Submit">Salvar</MudButton>
+
+</EditForm>
+
+@code {
+
+    [Parameter] public int? id { get; set; }
+
+    private LeadDetail lead = new();
+
+    private PatternMask postalCodeMask = new("00000-000");
+    private PatternMask cnpjMask = new("00.000.000/0000-00");
+
+    private LeadDetailValidator validator = new();
+    private bool readOnlyAddress = true;
+    private bool readOnlyNeighborhood = true;
+    private bool readOnlyCity = true;
+    private bool readOnlyState = true;
+    private string? lastSearchedPostalCode;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (id.HasValue)
+        {
+            var leadDetail = await LeadService.GetLeadAsync(id.Value);
+            if (leadDetail is null)
+                Navigation.NavigateTo("");
+            else
+                lead = leadDetail;
+            await CheckPostalCode();
+        }
+    }
+
+    private async Task CheckPostalCode()
+    {
+        var postalCodeDetail = await LeadService.GetPostalCodeDetail(lead.CEP);
+        CheckReadOnlyFields(postalCodeDetail);
+        lastSearchedPostalCode = lead.CEP;
+    }
+
+    private async Task Save()
+    {
+        var success = false;
+
+        if (lastSearchedPostalCode != lead.CEP)
+        {
+            Snackbar.Add("Pesquisar CEP antes de salvar");
+            return;
+        }
+
+        if (lead.Id > 0)
+            success = await LeadService.UpdateLeadAsync(lead);
+        else
+            success = await LeadService.CreateLeadAsync(lead);
+
+        if (success)
+            Navigation.NavigateTo("");
+    }
+
+    private async Task SearchPostalCode()
+    {
+        if (lead.CEP?.Length != 8)
+            return;
+
+        var cepDetail = await LeadService.GetPostalCodeDetail(lead.CEP);
+
+        if (cepDetail is null || cepDetail.Erro == bool.TrueString.ToLower())
+        {
+            lead.Endereco = string.Empty;
+            lead.Bairro = string.Empty;
+            lead.Cidade = string.Empty;
+            lead.Estado = string.Empty;
+        }
+        else
+        {
+            lead.Endereco = cepDetail.Logradouro;
+            lead.Bairro = cepDetail.Bairro;
+            lead.Cidade = cepDetail.Localidade;
+            lead.Estado = cepDetail.Estado;
+        }
+
+        CheckReadOnlyFields(cepDetail);
+        lastSearchedPostalCode = lead.CEP;
+    }
+
+    private void CheckReadOnlyFields(PostalCodeDetail? postalCodeDetail)
+    {
+        readOnlyAddress = !string.IsNullOrEmpty(postalCodeDetail?.Logradouro);
+        readOnlyState = !string.IsNullOrEmpty(postalCodeDetail?.Estado);
+        readOnlyNeighborhood = !string.IsNullOrEmpty(postalCodeDetail?.Bairro);
+        readOnlyCity = !string.IsNullOrEmpty(postalCodeDetail?.Localidade);
+    }
+
+    private void ClearAddress()
+    {
+        lead.CEP = string.Empty;
+        lead.Endereco = string.Empty;
+        lead.Bairro = string.Empty;
+        lead.Cidade = string.Empty;
+        lead.Estado = string.Empty;
+        readOnlyAddress = true;
+        readOnlyNeighborhood = true;
+        readOnlyCity = true;
+        readOnlyState = true;
+    }
+}
+
+<style>
+    .form-line {
+        margin: 10px;
+    }
+</style>

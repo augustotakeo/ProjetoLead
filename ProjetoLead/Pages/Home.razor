@@ -1,0 +1,77 @@
+﻿@page "/"
+@using MudBlazor
+@using ProjetoLead.API.Models
+@using System.Text.Json
+@using ProjetoLead.Models
+@using ProjetoLead.Services
+
+@inject LeadService LeadService
+@inject NavigationManager Navigation
+
+<div class="d-flex justify-content-center">
+    <h1>Leads</h1>
+</div>
+
+<div class="d-flex justify-content-end">
+    <MudButton OnClick="CreateLead" Style="width:200px">Incluir</MudButton>
+</div>
+
+
+@if (leads is not null)
+{
+    <MudDataGrid @ref="grid" T="LeadSummary" Items="leads">
+        <Columns>
+            <PropertyColumn Property="x => x.Cnpj" Title="CNPJ"></PropertyColumn>
+            <PropertyColumn Property="x => x.RazaoSocial" Title="Razão Social"></PropertyColumn>
+            <PropertyColumn Property="x => x.CEP" Title="CEP"></PropertyColumn>
+            <PropertyColumn Property="x => x.Estado" Title="Estado"></PropertyColumn>
+            <TemplateColumn>
+                <CellTemplate>
+                    <MudStack Row>
+                        <MudButton OnClick="@(() => UpdateLead(context.Item.Id))">Alterar</MudButton>
+                        <MudButton OnClick="@(() => DeleteLead(context.Item.Id))">Excluir</MudButton>
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+    </MudDataGrid>
+}
+
+@code {
+    private List<LeadSummary> leads = null!;
+    private MudDataGrid<LeadSummary> grid = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        leads = await LeadService.GetLeadsAsync() ?? [];
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (leads is not null)
+        {
+            if (grid is not null)
+                await grid.ReloadServerData();
+        }
+    }
+
+    private void CreateLead()
+    {
+        Navigation.NavigateTo("CreateLead");
+    }
+
+    private void UpdateLead(int id)
+    {
+        Navigation.NavigateTo($"UpdateLead/{id}");
+    }
+
+    private async Task DeleteLead(int id)
+    {
+        var success = await LeadService.DeleteLeadAsync(id);
+        if (success)
+        {
+            leads.RemoveAll(x => x.Id == id);
+            await grid.ReloadServerData();
+        }
+    }
+}

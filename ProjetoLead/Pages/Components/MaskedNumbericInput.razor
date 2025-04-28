@@ -1,0 +1,37 @@
+@using MudBlazor
+@using System.Text.RegularExpressions
+@using System.Linq.Expressions
+
+<MudTextField Label="@Label" @bind-Value="maskedValue" Mask="Mask" ReadOnly="ReadOnly" Clearable
+    OnClearButtonClick="OnClearButtonClick" For="For"></MudTextField>
+
+@code {
+    [Parameter] public EventCallback<MouseEventArgs> OnClearButtonClick { get; set; }
+    [Parameter] public PatternMask Mask { get; set; } = null!;
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public Expression<Func<string?>> For { get; set; } = null!;
+
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    private string? _maskedValue;
+    private string? maskedValue
+    {
+        get => _maskedValue;
+        set
+        {
+            Value = _maskedValue = value;
+            if (Value is not null)
+                Value = onlyNumbersRx.Replace(Value, string.Empty);
+            ValueChanged.InvokeAsync(Value);
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        maskedValue = Value;
+    }
+
+    private Regex onlyNumbersRx = new("[^0-9]");
+
+}

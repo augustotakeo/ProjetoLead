@@ -1,5 +1,7 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using ProjetoLead.API.Dtos;
+using ProjetoLead.API.Extensions;
 using ProjetoLead.API.Infrastructure.Repositories;
 
 namespace ProjetoLead.API.Controllers;
@@ -8,11 +10,13 @@ namespace ProjetoLead.API.Controllers;
 [Route("api/[controller]")]
 public class LeadController : ControllerBase
 {
-    public ILeadRepository _repository { get; set; }
+    public readonly ILeadRepository _repository;
+    private readonly IValidator<LeadDetailDto> _leadDetailValidator;
 
-    public LeadController(ILeadRepository repository)
+    public LeadController(ILeadRepository repository, IValidator<LeadDetailDto> leadDetailValidator)
     {
         _repository = repository;
+        _leadDetailValidator = leadDetailValidator;
     }
 
     [HttpGet]
@@ -34,18 +38,32 @@ public class LeadController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateAsync([FromBody] LeadDetailDto leadDetail)
     {
+        var result = await _leadDetailValidator.ValidateAsync(leadDetail);
+
+        if(!result.IsValid)
+            return BadRequest(result.GetValidationError());
+
         var lead = await _repository.CreateAsync(leadDetail);
+
         if (lead is null)
-            return UnprocessableEntity();
+            return UnprocessableEntity(new ErrorDetails(["Não foi possível cadastrar o lead"]));
+
         return Ok(lead);
     }
 
     [HttpPut]
     public async Task<IActionResult> UpdateAsync([FromBody] LeadDetailDto leadDetail)
     {
+        var result = await _leadDetailValidator.ValidateAsync(leadDetail);
+
+        if(!result.IsValid)
+            return BadRequest(result.GetValidationError());
+
         var lead = await _repository.UpdateAsync(leadDetail);
+
         if (lead is null)
-            return UnprocessableEntity();
+            return UnprocessableEntity(new ErrorDetails(["Não foi possível atualizar o lead"]));
+
         return Ok(lead);
     }
 
